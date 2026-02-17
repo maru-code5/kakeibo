@@ -7,6 +7,19 @@ import { db } from "./firebase";
 // 📊 グラフ用の部品をインポート
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
+// 📈 グラフの中にパーセンテージを表示するための計算式（ここを追加！）
+const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
+  const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
+
+  return (
+    <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" style={{ fontSize: '12px', fontWeight: 'bold' }}>
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+};
+
 export default function App() {
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
@@ -113,10 +126,12 @@ export default function App() {
                 data={chartData}
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
-                outerRadius={80}
+                innerRadius={50}  // 👈 数字が見やすいように少し内側を広げました
+                outerRadius={90}  // 👈 少し大きくしました
                 paddingAngle={5}
                 dataKey="value"
+                labelLine={false}   // 👈 線を消してスッキリ
+                label={renderCustomizedLabel} // 👈 💥 ここで①で作った計算式を呼び出します！
               >
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
