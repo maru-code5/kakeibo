@@ -100,4 +100,69 @@ export default function App() {
 
       <div style={styles.summary}>
         <h2>合計：{total.toLocaleString()} 円</h2>
-        <h2 style={{ color: remaining < 0 ?
+        <h2 style={{ color: remaining < 0 ? "red" : "black" }}>残り：{remaining.toLocaleString()} 円</h2>
+      </div>
+
+      {/* 📊 円グラフを表示するエリア */}
+      {items.length > 0 && (
+        <div style={styles.chartContainer}>
+          <h3 style={{ textAlign: "center", marginBottom: "10px" }}>カテゴリー別割合</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={80}
+                paddingAngle={5}
+                dataKey="value"
+              >
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value) => `${value.toLocaleString()}円`} />
+              <Legend verticalAlign="bottom" height={36}/>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      <div style={styles.listContainer}>
+        {sortedDates.map((dateString) => (
+          <div key={dateString} style={{ marginBottom: "20px" }}>
+            <div style={styles.dateHeader}>{dateString.replace(/-/g, "/")} ▼</div>
+            {groupedItems[dateString].map((item) => (
+              <div key={item.id} style={styles.listItem}>
+                <span>
+                  {item.category} ／ <strong>{Number(item.amount).toLocaleString()}円</strong>
+                  {item.memo && <span style={{ color: "#666", fontSize: "14px" }}> （{item.memo}）</span>}
+                </span>
+                <button onClick={() => deleteItem(item.id)} style={styles.deleteBtn}>🗑️</button>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// 💥 スタイル定義（ここが切れているとエラーになります）
+const styles = {
+  container: { width: "100%", maxWidth: "480px", margin: "0 auto", padding: "16px", fontFamily: "sans-serif" },
+  input: { width: "100%", padding: "12px", marginBottom: "8px", fontSize: "16px", boxSizing: "border-box", border: "1px solid #ccc", borderRadius: "4px" },
+  select: { width: "100%", padding: "12px", fontSize: "16px", marginBottom: "8px", borderRadius: "4px", boxSizing: "border-box" },
+  button: { width: "100%", padding: "12px", fontSize: "16px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" },
+  summary: { marginTop: "20px", padding: "10px", backgroundColor: "#f8f9fa", borderRadius: "8px" },
+  chartContainer: { marginTop: "30px", padding: "10px", backgroundColor: "#fff", borderRadius: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" },
+  listContainer: { marginTop: "20px" },
+  dateHeader: { fontWeight: "bold", fontSize: "16px", margin: "15px 0 5px", color: "#97f128ff" },
+  listItem: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #eee" },
+  deleteBtn: { background: "none", border: "none", cursor: "pointer", fontSize: "18px" }
+};
+
+const headerStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '20px 0' };
+const logoStyle = { width: '40px', height: '40px', borderRadius: '8px' };
+const titleStyle = { fontSize: '24px', fontWeight: 'bold', margin: 0, color: '#333' };
