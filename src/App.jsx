@@ -91,8 +91,19 @@ export default function App() {
   return (
     <div style={styles.container}>
       <header style={headerStyle}>
-        <img src="/icon.png" alt="logo" style={logoStyle} />
-        <h1 style={titleStyle}>My Kakeibo</h1>
+        <img 
+          src="/icon.png" 
+          alt="logo" 
+          style={{...logoStyle, cursor: 'pointer'}} 
+          onClick={() => window.location.reload()}
+          title="再読み込み" 
+        />
+        <h1 
+          style={{...titleStyle, cursor: 'pointer'}} 
+          onClick={() => window.location.reload()}
+        >
+          My Kakeibo
+        </h1>
       </header>
 
       <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={styles.input} />
