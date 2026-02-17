@@ -27,7 +27,7 @@ export default function App() {
   const [items, setItems] = useState([]);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
 
-  const monthlyBudget = 90000;
+  const monthlyBudget = 100000;
   const total = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   const remaining = monthlyBudget - total;
 
