@@ -4,6 +4,8 @@ import {
   doc, deleteDoc, serverTimestamp 
 } from "firebase/firestore";
 import { db } from "./firebase";
+// 📊 グラフ用の部品をインポート
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
 export default function App() {
   const [amount, setAmount] = useState("");
@@ -27,6 +29,20 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  // 📈 カテゴリごとに集計するデータ作成
+  const chartData = items.reduce((acc, item) => {
+    const found = acc.find((c) => c.name === item.category);
+    if (found) {
+      found.value += Number(item.amount);
+    } else {
+      acc.push({ name: item.category, value: Number(item.amount) });
+    }
+    return acc;
+  }, []);
+
+  // 🎨 グラフの色設定
+  const COLORS = ["#FF8042", "#0088FE", "#00C49F", "#FFBB28", "#84d8ff", "#8884d8"];
 
   const handleAdd = async () => {
     if (!amount) return;
@@ -61,11 +77,10 @@ export default function App() {
 
   return (
     <div style={styles.container}>
-
       <header style={headerStyle}>
-  <img src="/icon.png" alt="logo" style={logoStyle} />
-  <h1 style={titleStyle}>My Kakeibo</h1>
-</header>
+        <img src="/icon.png" alt="logo" style={logoStyle} />
+        <h1 style={titleStyle}>My Kakeibo</h1>
+      </header>
 
       <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={styles.input} />
       <input type="number" placeholder="金額（円）" value={amount} onChange={(e) => setAmount(e.target.value)} style={styles.input} />
@@ -85,60 +100,4 @@ export default function App() {
 
       <div style={styles.summary}>
         <h2>合計：{total.toLocaleString()} 円</h2>
-        <h2 style={{ color: remaining < 0 ? "red" : "black" }}>残り：{remaining.toLocaleString()} 円</h2>
-      </div>
-
-      <div style={styles.listContainer}>
-        {sortedDates.map((dateString) => (
-          <div key={dateString} style={{ marginBottom: "20px" }}>
-            <div style={styles.dateHeader}>{dateString.replace(/-/g, "/")} ▼</div>
-            {groupedItems[dateString].map((item) => (
-              <div key={item.id} style={styles.listItem}>
-                <span>
-                  {item.category} ／ <strong>{Number(item.amount).toLocaleString()}円</strong>
-                  {item.memo && <span style={{ color: "#666", fontSize: "14px" }}> （{item.memo}）</span>}
-                </span>
-                <button onClick={() => deleteItem(item.id)} style={styles.deleteBtn}>🗑️</button>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// 💥 ここが重要！すべてのスタイルが定義されているか確認！
-const styles = {
-  container: { width: "100%", maxWidth: "480px", margin: "0 auto", padding: "16px", fontFamily: "sans-serif" },
-  title: { textAlign: "center", color: "#333" },
-  input: { width: "100%", padding: "12px", marginBottom: "8px", fontSize: "16px", boxSizing: "border-box", border: "1px solid #ccc", borderRadius: "4px" },
-  select: { width: "100%", padding: "12px", fontSize: "16px", marginBottom: "8px", borderRadius: "4px", boxSizing: "border-box" },
-  button: { width: "100%", padding: "12px", fontSize: "16px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" },
-  summary: { marginTop: "20px", padding: "10px", backgroundColor: "#f8f9fa", borderRadius: "8px" },
-  listContainer: { marginTop: "20px" },
-  dateHeader: { fontWeight: "bold", fontSize: "16px", margin: "15px 0 5px", color: "#97f128ff" },
-  listItem: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #eee" },
-  deleteBtn: { background: "none", border: "none", cursor: "pointer", fontSize: "18px" }
-};
-
-const headerStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '10px',        // ロゴと文字の間の隙間
-  padding: '20px 0',
-};
-
-const logoStyle = {
-  width: '40px',      // ロゴのサイズ（お好みで調整してね）
-  height: '40px',
-  borderRadius: '8px', // 少し角を丸くすると可愛い！
-};
-
-const titleStyle = {
-  fontSize: '24px',
-  fontWeight: 'bold',  // フォントを太く！
-  margin: 0,
-  color: '#333',       // 文字色（わんちゃんの色に合わせて変えても◎）
-};
+        <h2 style={{ color: remaining < 0 ?
