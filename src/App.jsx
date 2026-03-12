@@ -7,12 +7,22 @@ import { db } from "./firebase";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
 const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-  const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
-  const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
+  const RADIAN = Math.PI / 180;
+  // outerRadius + 30 にすることで、円の外側に配置します
+  const radius = outerRadius + 30;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
   return (
-    <text x={x} y={y} fill="#333" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" style={{ fontSize: '10px', fontWeight: 'bold' }}>
-      {`${(percent * 100).toFixed(0)}%`}
+    <text 
+      x={x} 
+      y={y} 
+      fill="#333" 
+      textAnchor={x > cx ? 'start' : 'end'} 
+      dominantBaseline="central" 
+      style={{ fontSize: '12px', fontWeight: 'bold' }}
+    >
+      {`${name} ${(percent * 100).toFixed(0)}%`}
     </text>
   );
 };
@@ -83,12 +93,16 @@ export default function App() {
   // カテゴリー別集計（グラフ用）
   const chartData = currentItems.reduce((acc, item) => {
     const found = acc.find((c) => c.name === item.category);
-    if (found) { found.value += Number(item.amount); }
-    else { acc.push({ name: item.category, value: Number(item.amount) }); }
+    if (found) { 
+      found.value += Number(item.amount); 
+    } else { 
+      acc.push({ name: item.category, value: Number(item.amount) }); 
+    }
     return acc;
   }, []);
+  .sort((a, b) => b.value - a.value); // 🔥 これが「大きい順」にする魔法の1行です
 
-  const COLORS = ["#FF8042", "#0088FE", "#00C49F", "#FFBB28", "#84d8ff", "#8884d8"];
+  const COLORS = ["#ed0a0a", "#0088FE", "#00C49F", "#fbf71e", "#fb23da", "#0df3ff"];
 
   // 4. 月別予算の保存
   const handleUpdateBudget = async () => {
@@ -171,11 +185,12 @@ export default function App() {
                 cx="50%" 
                 cy="50%" 
                 innerRadius={0}      // 🔥 0にするとドーナツではなく普通の円になります
-                outerRadius={80} 
+                outerRadius={60} 
                 dataKey="value" 
                 label={renderCustomizedLabel}
                 startAngle={90}      // 🔥 12時の位置（90度）から開始
                 endAngle={-270}      // 🔥 時計回りに一周
+                paddingAngle={2}   // 境目を見やすくするために少し隙間をあけると綺麗です
               >
                 {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
