@@ -99,7 +99,7 @@ export default function App() {
       acc.push({ name: item.category, value: Number(item.amount) }); 
     }
     return acc;
-  }, []);
+  }, [])
   .sort((a, b) => b.value - a.value); // 🔥 これが「大きい順」にする魔法の1行です
 
   const COLORS = ["#ed0a0a", "#0088FE", "#00C49F", "#fbf71e", "#fb23da", "#0df3ff"];
