@@ -23,27 +23,16 @@ export default function App() {
   const [category, setCategory] = useState("食品");
   const [items, setItems] = useState([]);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  
   const [monthlyBudget, setMonthlyBudget] = useState(90000);
   const [isSettingOpen, setIsSettingOpen] = useState(false);
   const [tempBudget, setTempBudget] = useState("");
 
-  // 📅 今月の年月を取得 (例: "2024-03")
-  const today = new Date();
-  const currentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-  
-  // 📅 先月の年月を取得
-  const lastMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-  const lastMonthStr = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
-
-  // 1. 全データ取得
   useEffect(() => {
     const q = query(collection(db, "kakeibo"), orderBy("date", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setItems(data);
     });
-
     const fetchBudget = async () => {
       const budgetDoc = await getDoc(doc(db, "settings", "budget"));
       if (budgetDoc.exists()) {
@@ -55,29 +44,54 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // 💰 計算ロジック
-  // 今月の支出合計
-  const currentMonthTotal = items
-    .filter(item => item.date && item.date.startsWith(currentMonthStr))
-    .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  // 📅 15日締めの期間計算ロジック
+  const getPeriod = (targetDate) => {
+    const d = new Date(targetDate);
+    const year = d.getFullYear();
+    const month = d.getMonth(); // 0-11
+    const day = d.getDate();
 
-  // 先月の支出合計
-  const lastMonthTotal = items
-    .filter(item => item.date && item.date.startsWith(lastMonthStr))
-    .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    let start, end;
+    if (day <= 15) {
+      // 15日以前：先月16日〜今月15日
+      start = new Date(year, month - 1, 16);
+      end = new Date(year, month, 15);
+    } else {
+      // 16日以降：今月16日〜来月15日
+      start = new Date(year, month, 16);
+      end = new Date(year, month + 1, 15);
+    }
+    return { start, end };
+  };
 
-  // 先月からの繰り越し (先月の予算 - 先月の支出)
-  const carryOver = monthlyBudget - lastMonthTotal;
+  const todayPeriod = getPeriod(new Date());
   
-  // 今月の実質予算 (設定予算 + 繰り越し)
-  const actualBudget = monthlyBudget + carryOver;
-  
-  // 最終的な残り
-  const remaining = actualBudget - currentMonthTotal;
+  // 先月の期間（今の期間の開始日のさらに1ヶ月前を基準にする）
+  const lastMonthRef = new Date(todayPeriod.start);
+  lastMonthRef.setDate(lastMonthRef.getDate() - 1);
+  const lastPeriod = getPeriod(lastMonthRef);
 
-  // グラフ用データ (今月分のみ)
+  // 💰 集計関数
+  const getSum = (period) => {
+    return items
+      .filter(item => {
+        const itemDate = new Date(item.date);
+        return itemDate >= period.start && itemDate <= period.end;
+      })
+      .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  };
+
+  const currentTotal = getSum(todayPeriod);
+  const lastTotal = getSum(lastPeriod);
+  const carryOver = monthlyBudget - lastTotal;
+  const remaining = (monthlyBudget + carryOver) - currentTotal;
+
+  // グラフ用（今の期間のみ）
   const chartData = items
-    .filter(item => item.date && item.date.startsWith(currentMonthStr))
+    .filter(item => {
+      const itemDate = new Date(item.date);
+      return itemDate >= todayPeriod.start && itemDate <= todayPeriod.end;
+    })
     .reduce((acc, item) => {
       const found = acc.find((c) => c.name === item.category);
       if (found) { found.value += Number(item.amount); }
@@ -106,7 +120,7 @@ export default function App() {
   };
 
   const deleteItem = async (id) => {
-    if (!window.confirm("この明細を削除しますか？")) return;
+    if (!window.confirm("削除しますか？")) return;
     await deleteDoc(doc(db, "kakeibo", id));
   };
 
@@ -114,27 +128,30 @@ export default function App() {
     <div style={styles.container}>
       <header style={headerStyle}>
         <img src="/icon.png" alt="logo" style={{...logoStyle, cursor: 'pointer'}} onClick={() => window.location.reload()} />
-        <h1 style={{...titleStyle, cursor: 'pointer'}} onClick={() => window.location.reload()}>My Kakeibo</h1>
+        <h1 style={{...titleStyle, fontSize: '18px'}}>My Kakeibo (15日締)</h1>
         <button onClick={() => setIsSettingOpen(!isSettingOpen)} style={styles.settingBtn}>⚙️</button>
       </header>
 
       {isSettingOpen && (
         <div style={styles.budgetSettingBox}>
-          <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>基本の月間予算</label>
+          <label style={{display: 'block', marginBottom: '8px', fontWeight: 'bold'}}>1サイクル(1ヶ月)の予算</label>
           <input type="number" value={tempBudget} onChange={(e) => setTempBudget(e.target.value)} style={styles.input} />
           <button onClick={handleUpdateBudget} style={styles.saveBtn}>設定保存</button>
         </div>
       )}
 
       <div style={styles.summaryCard}>
+        <div style={{fontSize: '12px', color: '#666', marginBottom: '8px'}}>
+          期間: {todayPeriod.start.toLocaleDateString()} 〜 {todayPeriod.end.toLocaleDateString()}
+        </div>
         <div style={styles.summaryRow}><span>基本予算:</span> <span>{monthlyBudget.toLocaleString()}円</span></div>
         <div style={{...styles.summaryRow, color: carryOver >= 0 ? "blue" : "red"}}>
-          <span>先月の繰越:</span> <span>{carryOver >= 0 ? "+" : ""}{carryOver.toLocaleString()}円</span>
+          <span>前期間からの繰越:</span> <span>{carryOver >= 0 ? "+" : ""}{carryOver.toLocaleString()}円</span>
         </div>
         <hr />
-        <div style={styles.summaryRow}><strong>今月の支出:</strong> <strong>{currentMonthTotal.toLocaleString()}円</strong></div>
+        <div style={styles.summaryRow}><strong>今サイクルの支出:</strong> <strong>{currentTotal.toLocaleString()}円</strong></div>
         <div style={{...styles.summaryRow, fontSize: "1.2em", color: remaining < 0 ? "red" : "green"}}>
-          <strong>今月の残り:</strong> <strong>{remaining.toLocaleString()}円</strong>
+          <strong>残り（繰越込）:</strong> <strong>{remaining.toLocaleString()}円</strong>
         </div>
       </div>
 
@@ -157,7 +174,6 @@ export default function App() {
 
       {chartData.length > 0 && (
         <div style={styles.chartContainer}>
-          <h3 style={{ textAlign: "center", fontSize: "14px" }}>今月のカテゴリー別</h3>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie data={chartData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={5} dataKey="value" label={renderCustomizedLabel}>
@@ -171,7 +187,7 @@ export default function App() {
       )}
 
       <div style={styles.listContainer}>
-        <h3 style={{fontSize: "14px", color: "#666"}}>全履歴</h3>
+        <h3 style={{fontSize: "14px", color: "#666"}}>履歴（直近10件）</h3>
         {items.slice(0, 10).map((item) => (
           <div key={item.id} style={styles.listItem}>
             <span style={{fontSize: "12px", color: "#888"}}>{item.date?.replace(/-/g, "/")}</span>
@@ -185,7 +201,7 @@ export default function App() {
 }
 
 const styles = {
-  container: { width: "100%", maxWidth: "480px", margin: "0 auto", padding: "16px", fontFamily: "sans-serif", backgroundColor: "#fdfdfd" },
+  container: { width: "100%", maxWidth: "480px", margin: "0 auto", padding: "16px", fontFamily: "sans-serif" },
   summaryCard: { backgroundColor: "#fff", padding: "16px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.08)", marginBottom: "20px" },
   summaryRow: { display: "flex", justifyContent: "space-between", margin: "4px 0" },
   inputArea: { backgroundColor: "#f0f2f5", padding: "12px", borderRadius: "12px", marginBottom: "20px" },
@@ -193,13 +209,11 @@ const styles = {
   select: { padding: "10px", fontSize: "14px", marginBottom: "8px", borderRadius: "8px", border: "1px solid #ddd" },
   button: { width: "100%", padding: "12px", fontSize: "16px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "8px", fontWeight: "bold" },
   chartContainer: { backgroundColor: "#fff", padding: "12px", borderRadius: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", marginBottom: "20px" },
-  listItem: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid #eee" },
+  listItem: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #eee" },
   deleteBtn: { background: "none", border: "none", fontSize: "16px" },
   settingBtn: { background: "none", border: "none", fontSize: "20px" },
   budgetSettingBox: { padding: "12px", backgroundColor: "#eee", borderRadius: "8px", marginBottom: "12px" },
   saveBtn: { width: "100%", padding: "8px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "4px" }
 };
-
 const headerStyle = { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' };
 const logoStyle = { width: '32px', height: '32px', borderRadius: '6px' };
-const titleStyle = { fontSize: '20px', fontWeight: 'bold', margin: 0 };
