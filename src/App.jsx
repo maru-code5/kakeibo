@@ -32,29 +32,27 @@ export default function App() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setItems(data || []);
-    }, (error) => console.error("Firebase Error:", error));
+    });
 
     const fetchBudget = async () => {
       try {
         const budgetDoc = await getDoc(doc(db, "settings", "budget"));
         if (budgetDoc.exists()) {
-          const val = budgetDoc.data().value;
-          setMonthlyBudget(val);
-          setTempBudget(val);
+          setMonthlyBudget(budgetDoc.data().value);
+          setTempBudget(budgetDoc.data().value);
         }
-      } catch (e) { console.error("Budget Fetch Error:", e); }
+      } catch (e) { console.error(e); }
     };
     fetchBudget();
     return () => unsubscribe();
   }, []);
 
-  // 📅 期間計算（エラーが出にくい書き方に修正）
   const getPeriod = (refDate) => {
     const d = new Date(refDate);
+    if (isNaN(d.getTime())) return { start: new Date(), end: new Date() };
     const y = d.getFullYear();
     const m = d.getMonth();
     const day = d.getDate();
-    
     let start, end;
     if (day <= 15) {
       start = new Date(y, m - 1, 16, 0, 0, 0);
@@ -67,7 +65,6 @@ export default function App() {
   };
 
   const todayPeriod = getPeriod(new Date());
-  // 先月の基準日：今サイクルの開始日の1日前
   const lastMonthRef = new Date(todayPeriod.start);
   lastMonthRef.setDate(lastMonthRef.getDate() - 1);
   const lastPeriod = getPeriod(lastMonthRef);
@@ -114,58 +111,88 @@ export default function App() {
     setAmount(""); setMemo("");
   };
 
+  const deleteItem = async (id) => {
+    if (!window.confirm("削除しますか？")) return;
+    await deleteDoc(doc(db, "kakeibo", id));
+  };
+
   return (
     <div style={{ width: "100%", maxWidth: "480px", margin: "0 auto", padding: "12px", fontFamily: "sans-serif" }}>
       <header style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
-        <img src="/icon.png" alt="logo" style={{ width: '32px', height: '32px', borderRadius: '6px', marginRight: '10px' }} onClick={() => window.location.reload()} />
+        <img src="/icon.png" alt="logo" style={{ width: '32px', height: '32px', borderRadius: '6px', marginRight: '10px', cursor: 'pointer' }} onClick={() => window.location.reload()} />
         <h1 style={{ fontSize: '18px', margin: 0 }}>My Kakeibo</h1>
         <button onClick={() => setIsSettingOpen(!isSettingOpen)} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '20px' }}>⚙️</button>
       </header>
 
       {isSettingOpen && (
         <div style={{ padding: "12px", backgroundColor: "#eee", borderRadius: "8px", marginBottom: "12px" }}>
-          <input type="number" value={tempBudget} onChange={(e) => setTempBudget(e.target.value)} style={{ width: '100%', padding: '8px', marginBottom: '8px' }} />
-          <button onClick={handleUpdateBudget} style={{ width: '100%', padding: '8px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>予算保存</button>
+          <label style={{fontSize: '12px', fontWeight: 'bold'}}>1サイクルの基本予算</label>
+          <input type="number" value={tempBudget} onChange={(e) => setTempBudget(e.target.value)} style={{ width: '100%', padding: '8px', marginBottom: '8px', boxSizing: 'border-box' }} />
+          <button onClick={handleUpdateBudget} style={{ width: '100%', padding: '8px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>予算を保存</button>
         </div>
       )}
 
       <div style={{ backgroundColor: "#fff", padding: "16px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.08)", marginBottom: "16px" }}>
-        <div style={{ fontSize: '11px', color: '#888' }}>
-          期間: {todayPeriod.start.toLocaleDateString()}〜{todayPeriod.end.toLocaleDateString()}
+        <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>
+          【現在のサイクル】{todayPeriod.start.toLocaleDateString()} 〜 {todayPeriod.end.toLocaleDateString()}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', margin: '8px 0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', margin: '4px 0' }}>
           <span>基本予算:</span> <span>{monthlyBudget.toLocaleString()}円</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', margin: '4px 0', color: carryOver >= 0 ? 'blue' : 'red' }}>
-          <span>前回繰越:</span> <span>{carryOver >= 0 ? "+" : ""}{carryOver.toLocaleString()}円</span>
+          <span>前期間からの繰越:</span> <span>{carryOver >= 0 ? "+" : ""}{carryOver.toLocaleString()}円</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', fontSize: '1.2em', fontWeight: 'bold' }}>
+        <hr style={{ border: 'none', borderTop: '1px dashed #eee', margin: '10px 0' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', margin: '4px 0' }}>
+          <strong>今回の支出:</strong> <strong>{currentTotal.toLocaleString()}円</strong>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '1.2em', fontWeight: 'bold' }}>
           <span>残り:</span> <span style={{ color: remaining < 0 ? 'red' : 'green' }}>{remaining.toLocaleString()}円</span>
         </div>
       </div>
 
       <div style={{ backgroundColor: "#f0f2f5", padding: "12px", borderRadius: "12px", marginBottom: "16px" }}>
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '8px', borderRadius: '8px', border: '1px solid #ddd' }} />
-        <input type="number" placeholder="金額" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '8px', borderRadius: '8px', border: '1px solid #ddd' }} />
-        <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '8px', borderRadius: '8px', border: '1px solid #ddd' }}>
-          <option value="食品">食品</option><option value="日用品">日用品</option><option value="外食">外食</option>
-          <option value="光熱費">光熱費</option><option value="こたちゃん">こたちゃん</option><option value="その他">その他</option>
-        </select>
-        <button onClick={handleAdd} style={{ width: '100%', padding: '12px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}>追加</button>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '8px', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+          <input type="number" placeholder="金額" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ flex: 2, padding: '10px', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
+          <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ flex: 1.5, padding: '10px', borderRadius: '8px', border: '1px solid #ddd', backgroundColor: '#fff' }}>
+            <option value="食品">食品</option><option value="日用品">日用品</option><option value="外食">外食</option>
+            <option value="光熱費">光熱費</option><option value="こたちゃん">こたちゃん</option><option value="その他">その他</option>
+          </select>
+        </div>
+        <input placeholder="メモ" value={memo} onChange={(e) => setMemo(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '8px', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
+        <button onClick={handleAdd} style={{ width: '100%', padding: '12px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}>支出を追加</button>
       </div>
 
       {chartData.length > 0 && (
-        <div style={{ height: '200px', marginBottom: '20px' }}>
-          <ResponsiveContainer width="100%" height="100%">
+        <div style={{ backgroundColor: '#fff', padding: '12px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '16px' }}>
+          <h3 style={{ textAlign: 'center', fontSize: '14px', margin: '0 0 10px 0' }}>今回のカテゴリー割合</h3>
+          <ResponsiveContainer width="100%" height={200}>
             <PieChart>
-              <Pie data={chartData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} dataKey="value" label={renderCustomizedLabel}>
+              <Pie data={chartData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} dataKey="value" label={renderCustomizedLabel}>
                 {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
-              <Tooltip /><Legend />
+              <Tooltip formatter={(v) => `${v.toLocaleString()}円`} /><Legend wrapperStyle={{fontSize: '12px'}} />
             </PieChart>
           </ResponsiveContainer>
         </div>
       )}
+
+      <div style={{ marginTop: '16px' }}>
+        <h3 style={{ fontSize: '14px', color: '#666', borderBottom: '1px solid #eee', paddingBottom: '8px' }}>履歴（直近15件）</h3>
+        {items.slice(0, 15).map((item) => (
+          <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f9f9f9' }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '10px', color: '#999' }}>{item.date?.replace(/-/g, "/")}</span>
+              <span style={{ fontSize: '14px' }}>{item.category} <span style={{ color: '#888', fontSize: '12px' }}>{item.memo ? `(${item.memo})` : ''}</span></span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <strong style={{ fontSize: '15px' }}>{Number(item.amount).toLocaleString()}円</strong>
+              <button onClick={() => deleteItem(item.id)} style={{ background: 'none', border: 'none', fontSize: '16px', color: '#ddd', cursor: 'pointer' }}>🗑️</button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
