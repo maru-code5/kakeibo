@@ -83,13 +83,11 @@ export default function App() {
   const currentTotal = getSum(todayPeriod);
   const lastTotal = getSum(lastPeriod);
 
-  // 🛡️ 初回判定：前期間にデータが3件未満なら繰越を0円にする
-  const lastPeriodCount = items.filter(item => {
-    const d = new Date(item.date);
-    return d >= lastPeriod.start && d <= lastPeriod.end;
-  }).length;
-
-  const carryOver = lastPeriodCount < 3 ? 0 : (monthlyBudget - lastTotal);
+  // 🛡️ 強力な初回対策：
+  // 期間の「開始日」が2月16日より前であれば、管理開始前とみなして繰越を0にする
+  const startLine = new Date("2026-02-16T00:00:00");
+  const carryOver = lastPeriod.start < startLine ? 0 : (monthlyBudget - lastTotal);
+  
   const remaining = (monthlyBudget + carryOver) - currentTotal;
 
   const chartData = items.reduce((acc, item) => {
