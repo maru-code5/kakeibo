@@ -23,7 +23,7 @@ export default function App() {
   const [category, setCategory] = useState("食品");
   const [items, setItems] = useState([]);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [monthlyBudget, setMonthlyBudget] = useState(90000);
+  const [monthlyBudget, setMonthlyBudget] = useState(60000);
   const [isSettingOpen, setIsSettingOpen] = useState(false);
   const [tempBudget, setTempBudget] = useState("");
   
