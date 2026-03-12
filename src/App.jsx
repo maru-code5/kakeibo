@@ -175,31 +175,48 @@ export default function App() {
       </div>
 
       {/* グラフエリア */}
-      {chartData.length > 0 && (
-        <div style={{ backgroundColor: '#fff', padding: '16px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', marginBottom: '20px' }}>
-          <h3 style={{ textAlign: 'center', fontSize: '14px', margin: '0 0 15px 0', color: '#666' }}>{selectedMonth}月の支出内訳</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie 
-                data={chartData} 
-                cx="50%" 
-                cy="50%" 
-                innerRadius={0}      // 🔥 0にするとドーナツではなく普通の円になります
-                outerRadius={60} 
-                dataKey="value" 
-                label={renderCustomizedLabel}
-                startAngle={90}      // 🔥 12時の位置（90度）から開始
-                endAngle={-270}      // 🔥 時計回りに一周
-                paddingAngle={2}   // 境目を見やすくするために少し隙間をあけると綺麗です
-              >
-                {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Pie>
-              <Tooltip formatter={(v) => `${v.toLocaleString()}円`} />
-              <Legend verticalAlign="bottom" wrapperStyle={{fontSize: '11px', paddingTop: '10px'}} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+{chartData.length > 0 && (
+  <div style={{ backgroundColor: '#fff', padding: '16px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', marginBottom: '20px' }}>
+    <h3 style={{ textAlign: 'center', fontSize: '14px', margin: '0 0 15px 0', color: '#666' }}>{selectedMonth}月の支出内訳</h3>
+    
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', flexWrap: 'wrap' }}>
+      {/* 左側のカスタム凡例 */}
+      <div style={{ minWidth: '150px', marginBottom: '10px' }}>
+        {chartData.map((entry, index) => (
+          <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', fontSize: '13px' }}>
+            <div style={{ width: '12px', height: '12px', backgroundColor: COLORS[index % COLORS.length], marginRight: '8px', borderRadius: '2px' }}></div>
+            <span style={{ fontWeight: 'bold', marginRight: '4px' }}>{entry.name}</span>
+            <span style={{ color: '#666' }}>
+              {entry.value.toLocaleString()}円 
+              ({((entry.value / currentTotal) * 100).toFixed(0)}%)
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* 右側のグラフ本体 */}
+      <div style={{ width: '200px', height: '200px' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie 
+              data={chartData} 
+              cx="50%" cy="50%" 
+              innerRadius={0} outerRadius={80} 
+              dataKey="value" 
+              labelLine={false}
+              label={renderCustomizedLabel}
+              startAngle={90} endAngle={-270}
+            >
+              {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Pie>
+            <Tooltip formatter={(v) => `${v.toLocaleString()}円`} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* 入力フォーム */}
       <div style={{ backgroundColor: "#f0f2f5", padding: "16px", borderRadius: "16px", marginBottom: "20px" }}>
