@@ -63,8 +63,8 @@ export default function App() {
           setTempBudget(val);
         } else {
           // 予算が未設定の月は、デフォルト値を表示
-          setMonthlyBudget(90000);
-          setTempBudget(90000);
+          setMonthlyBudget(60000);
+          setTempBudget(60000);
         }
       } catch (e) { console.error(e); }
     };
@@ -181,18 +181,19 @@ export default function App() {
     
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', flexWrap: 'wrap' }}>
       {/* 左側のカスタム凡例 */}
-      <div style={{ minWidth: '150px', marginBottom: '10px' }}>
+      <div style={{ minWidth: '180px', marginBottom: '10px' }}>
         {chartData.map((entry, index) => (
-          <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', fontSize: '13px' }}>
-            <div style={{ width: '12px', height: '12px', backgroundColor: COLORS[index % COLORS.length], marginRight: '8px', borderRadius: '2px' }}></div>
-            <span style={{ fontWeight: 'bold', marginRight: '4px' }}>{entry.name}</span>
-            <span style={{ color: '#666' }}>
-              {entry.value.toLocaleString()}円 
-              ({((entry.value / currentTotal) * 100).toFixed(0)}%)
-            </span>
-          </div>
-        ))}
-      </div>
+          <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', fontSize: '13px' }}>
+            <div style={{ width: '12px', height: '12px', backgroundColor: COLORS[index % COLORS.length], marginRight: '10px', borderRadius: '3px' }}></div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontWeight: 'bold' }}>{entry.name}</span>
+              <span style={{ fontSize: '12px', color: '#666' }}>
+                {entry.value.toLocaleString()}円 <span style={{ color: '#007bff' }}>({((entry.value / currentTotal) * 100).toFixed(1)}%)</span>
+              </span>
+        </div>
+    </div>
+  ))}
+</div>
 
       {/* 右側のグラフ本体 */}
       <div style={{ width: '200px', height: '200px' }}>
@@ -204,7 +205,6 @@ export default function App() {
               innerRadius={0} outerRadius={80} 
               dataKey="value" 
               labelLine={false}
-              label={renderCustomizedLabel}
               startAngle={90} endAngle={-270}
             >
               {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
