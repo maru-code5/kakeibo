@@ -166,7 +166,17 @@ export default function App() {
           <h3 style={{ textAlign: 'center', fontSize: '14px', margin: '0 0 15px 0', color: '#666' }}>{selectedMonth}月の支出内訳</h3>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
-              <Pie data={chartData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} dataKey="value" label={renderCustomizedLabel}>
+              <Pie 
+                data={chartData} 
+                cx="50%" 
+                cy="50%" 
+                innerRadius={0}      // 🔥 0にするとドーナツではなく普通の円になります
+                outerRadius={80} 
+                dataKey="value" 
+                label={renderCustomizedLabel}
+                startAngle={90}      // 🔥 12時の位置（90度）から開始
+                endAngle={-270}      // 🔥 時計回りに一周
+              >
                 {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
               <Tooltip formatter={(v) => `${v.toLocaleString()}円`} />
