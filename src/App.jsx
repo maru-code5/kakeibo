@@ -33,7 +33,6 @@ export default function App() {
       const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setItems(data || []);
     });
-
     const fetchBudget = async () => {
       try {
         const budgetDoc = await getDoc(doc(db, "settings", "budget"));
@@ -83,10 +82,9 @@ export default function App() {
   const currentTotal = getSum(todayPeriod);
   const lastTotal = getSum(lastPeriod);
 
-  // 🛡️ 強力な初回対策：
-  // 期間の「開始日」が2月16日より前であれば、管理開始前とみなして繰越を0にする
-  const startLine = new Date("2026-02-16T00:00:00");
-  const carryOver = lastPeriod.start < startLine ? 0 : (monthlyBudget - lastTotal);
+  // 🛡️ 初回強制0円フラグ（来月3/16になったらここを false に書き換えてください！）
+  const isFirstMonth = true; 
+  const carryOver = isFirstMonth ? 0 : (monthlyBudget - lastTotal);
   
   const remaining = (monthlyBudget + carryOver) - currentTotal;
 
