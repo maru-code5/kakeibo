@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { 
   collection, addDoc, onSnapshot, query, orderBy, 
-  doc, deleteDoc, serverTimestamp, setDoc, getDoc 
+  doc, deleteDoc, setDoc, getDoc 
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
@@ -26,6 +26,7 @@ export default function App() {
   const [monthlyBudget, setMonthlyBudget] = useState(90000);
   const [isSettingOpen, setIsSettingOpen] = useState(false);
   const [tempBudget, setTempBudget] = useState("");
+  const [showAllHistory, setShowAllHistory] = useState(false); // 履歴全表示の切り替え
 
   useEffect(() => {
     const q = query(collection(db, "kakeibo"), orderBy("date", "desc"));
@@ -68,34 +69,28 @@ export default function App() {
   lastMonthRef.setDate(lastMonthRef.getDate() - 1);
   const lastPeriod = getPeriod(lastMonthRef);
 
-  const getSum = (period) => {
-    return items.reduce((sum, item) => {
-      if (!item.date) return sum;
-      const itemDate = new Date(item.date);
-      if (itemDate >= period.start && itemDate <= period.end) {
-        return sum + (Number(item.amount) || 0);
-      }
-      return sum;
-    }, 0);
-  };
+  // 💰 今サイクルのデータをすべて抽出
+  const currentItems = items.filter(item => {
+    if (!item.date) return false;
+    const itemDate = new Date(item.date);
+    return itemDate >= todayPeriod.start && itemDate <= todayPeriod.end;
+  });
 
-  const currentTotal = getSum(todayPeriod);
-  const lastTotal = getSum(lastPeriod);
+  const currentTotal = currentItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const lastTotal = items.filter(item => {
+    if (!item.date) return false;
+    const itemDate = new Date(item.date);
+    return itemDate >= lastPeriod.start && itemDate <= lastPeriod.end;
+  }).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
-  // 🛡️ 初回強制0円フラグ（来月3/16になったらここを false に書き換えてください！）
   const isFirstMonth = true; 
   const carryOver = isFirstMonth ? 0 : (monthlyBudget - lastTotal);
-  
   const remaining = (monthlyBudget + carryOver) - currentTotal;
 
-  const chartData = items.reduce((acc, item) => {
-    if (!item.date) return acc;
-    const itemDate = new Date(item.date);
-    if (itemDate >= todayPeriod.start && itemDate <= todayPeriod.end) {
-      const found = acc.find((c) => c.name === item.category);
-      if (found) { found.value += Number(item.amount); }
-      else { acc.push({ name: item.category, value: Number(item.amount) }); }
-    }
+  const chartData = currentItems.reduce((acc, item) => {
+    const found = acc.find((c) => c.name === item.category);
+    if (found) { found.value += Number(item.amount); }
+    else { acc.push({ name: item.category, value: Number(item.amount) }); }
     return acc;
   }, []);
 
@@ -118,6 +113,9 @@ export default function App() {
     if (!window.confirm("削除しますか？")) return;
     await deleteDoc(doc(db, "kakeibo", id));
   };
+
+  // 表示する履歴の切り替え
+  const displayItems = showAllHistory ? items : items.slice(0, 20);
 
   return (
     <div style={{ width: "100%", maxWidth: "480px", margin: "0 auto", padding: "12px", fontFamily: "sans-serif" }}>
@@ -147,7 +145,7 @@ export default function App() {
         </div>
         <hr style={{ border: 'none', borderTop: '1px dashed #eee', margin: '10px 0' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', margin: '4px 0' }}>
-          <strong>今回の支出:</strong> <strong>{currentTotal.toLocaleString()}円</strong>
+          <strong>今回の支出 ({currentItems.length}件):</strong> <strong>{currentTotal.toLocaleString()}円</strong>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '1.2em', fontWeight: 'bold' }}>
           <span>残り:</span> <span style={{ color: remaining < 0 ? 'red' : 'green' }}>{remaining.toLocaleString()}円</span>
@@ -182,8 +180,13 @@ export default function App() {
       )}
 
       <div style={{ marginTop: '16px' }}>
-        <h3 style={{ fontSize: '14px', color: '#666', borderBottom: '1px solid #eee', paddingBottom: '8px' }}>履歴（直近15件）</h3>
-        {items.slice(0, 15).map((item) => (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '8px', marginBottom: '8px' }}>
+          <h3 style={{ fontSize: '14px', color: '#666', margin: 0 }}>履歴</h3>
+          <button onClick={() => setShowAllHistory(!showAllHistory)} style={{ fontSize: '12px', color: '#007bff', background: 'none', border: 'none', cursor: 'pointer' }}>
+            {showAllHistory ? "直近のみ表示" : "すべての履歴を表示"}
+          </button>
+        </div>
+        {displayItems.map((item) => (
           <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f9f9f9' }}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontSize: '10px', color: '#999' }}>{item.date?.replace(/-/g, "/")}</span>
